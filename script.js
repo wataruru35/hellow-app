@@ -1,6 +1,6 @@
 // Import Firebase SDKs
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, deleteDoc, doc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, where, orderBy, limit, deleteDoc, doc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { getStorage, ref, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-storage.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
@@ -68,8 +68,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    let unsubscribe = null;
+
     // Monitor Auth State
     onAuthStateChanged(auth, (user) => {
+        // Unsubscribe from previous listener if exists
+        if (unsubscribe) {
+            unsubscribe();
+            unsubscribe = null;
+        }
+
         if (user) {
             // User is signed in.
             loginBtn.style.display = 'none';
@@ -79,8 +87,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (recordBtn) recordBtn.style.display = 'block'; // Show record button
 
-            // Re-render logs to show delete buttons
-            renderLogs(currentSnapshot, user);
+            // Query ONLY for this user
+            // Note: This requires a composite index on (uid, timestamp).
+            const q = query(
+                collection(db, "visits"),
+                where("uid", "==", user.uid),
+                orderBy("timestamp", "desc"),
+                limit(10)
+            );
+
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                currentSnapshot = snapshot;
+                renderLogs(snapshot, user);
+            }, (error) => {
+                console.error("Error fetching logs:", error);
+                // If index is missing, it will log a link here.
+            });
+
         } else {
             // No user is signed in.
             loginBtn.style.display = 'block';
@@ -88,11 +111,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (recordBtn) recordBtn.style.display = 'none'; // Hide record button
 
-            // Re-render logs to hide delete buttons
-            renderLogs(currentSnapshot, null);
+            logsContainer.innerHTML = ''; // Clear logs
+            currentSnapshot = [];
         }
     });
-
 
     // --- Storage Logic ---
     const storageRef = ref(storage, 'robot.png');
@@ -111,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     container.addEventListener('mousemove', (e) => {
         const xAxis = (window.innerWidth / 2 - e.pageX) / 25;
         const yAxis = (window.innerHeight / 2 - e.pageY) / 25;
+
         card.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
 
         const rect = card.getBoundingClientRect();
@@ -132,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const now = new Date();
                 await addDoc(collection(db, "visits"), {
                     timestamp: now,
-                    uid: auth.currentUser.uid, // Optionally record who clicked
+                    uid: auth.currentUser.uid,
                     name: auth.currentUser.displayName
                 });
             } catch (e) {
@@ -144,12 +167,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentSnapshot = [];
 
-    // Real-time listener
-    const q = query(collection(db, "visits"), orderBy("timestamp", "desc"), limit(10));
-    onSnapshot(q, (snapshot) => {
-        currentSnapshot = snapshot;
-        renderLogs(snapshot, auth.currentUser);
-    });
+
+
 
     function renderLogs(snapshot, currentUser) {
         if (!logsContainer || !snapshot) return;
