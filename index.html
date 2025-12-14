@@ -20,8 +20,17 @@
                     style="height: 1em; vertical-align: middle; margin-right: 0.2em;"> hellow world!</h1>
             <p class="subtitle">Welcome to the future.</p>
 
+            <div id="auth-container" class="auth-container">
+                <button id="loginBtn" class="auth-btn">Googleでログイン</button>
+                <div id="userInfo" class="user-info" style="display: none;">
+                    <img id="userIcon" src="" alt="User Icon" class="user-icon">
+                    <span id="userName"></span>
+                    <button id="logoutBtn" class="auth-btn secondary">ログアウト</button>
+                </div>
+            </div>
+
             <div class="actions">
-                <button id="recordBtn" class="glow-on-hover">訪問を登録</button>
+                <button id="recordBtn" class="glow-on-hover">訪問日を登録</button>
             </div>
 
             <div id="logs" class="logs-container"></div>

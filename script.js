@@ -1,8 +1,8 @@
-
 // Import Firebase SDKs
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, deleteDoc, doc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 import { getStorage, ref, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-storage.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
 // Firebase Configuration
 const firebaseConfig = {
@@ -19,83 +19,142 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const auth = getAuth(app);
 
 // Connect to Emulators if running locally
 if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
     console.log("Running in development mode: Connecting to Firebase Emulators");
     connectFirestoreEmulator(db, 'localhost', 8080);
     connectStorageEmulator(storage, 'localhost', 9199);
+    connectAuthEmulator(auth, "http://localhost:9099");
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     const card = document.querySelector('.card');
     const container = document.querySelector('.container');
+
+    // Auth UI Elements
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const userInfo = document.getElementById('userInfo');
+    const userIcon = document.getElementById('userIcon');
+    const userName = document.getElementById('userName');
+
+    // App UI Elements
     const recordBtn = document.getElementById('recordBtn');
     const logsContainer = document.getElementById('logs');
-    const robotImg = document.querySelector('.robot');
 
-    // Fetch Image from Storage
-    // Fetch Image from Storage
+    // Initial State
+    if (recordBtn) recordBtn.style.display = 'none'; // Hide by default until logged in
+
+    // --- Authentication Logic ---
+    const provider = new GoogleAuthProvider();
+
+    loginBtn.addEventListener('click', () => {
+        signInWithPopup(auth, provider)
+            .then((result) => {
+                console.log("Logged in:", result.user);
+            }).catch((error) => {
+                console.error("Login failed:", error);
+                alert("ログインに失敗しました: " + error.message);
+            });
+    });
+
+    logoutBtn.addEventListener('click', () => {
+        signOut(auth).then(() => {
+            console.log("Logged out");
+        }).catch((error) => {
+            console.error("Logout failed:", error);
+        });
+    });
+
+    // Monitor Auth State
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            // User is signed in.
+            loginBtn.style.display = 'none';
+            userInfo.style.display = 'flex';
+            userIcon.src = user.photoURL;
+            userName.textContent = user.displayName;
+
+            if (recordBtn) recordBtn.style.display = 'block'; // Show record button
+
+            // Re-render logs to show delete buttons
+            renderLogs(currentSnapshot, user);
+        } else {
+            // No user is signed in.
+            loginBtn.style.display = 'block';
+            userInfo.style.display = 'none';
+
+            if (recordBtn) recordBtn.style.display = 'none'; // Hide record button
+
+            // Re-render logs to hide delete buttons
+            renderLogs(currentSnapshot, null);
+        }
+    });
+
+
+    // --- Storage Logic ---
     const storageRef = ref(storage, 'robot.png');
-    // Attempt to get download URL. If it fails (not uploaded yet), fall back to local or keep default.
     getDownloadURL(storageRef)
         .then((url) => {
-            // Find all images that should be the robot and update their source.
-            // This covers both the header icon and the animation robot.
             const robotImages = document.querySelectorAll('img[src*="robot.png"]');
             robotImages.forEach(img => {
                 img.src = url;
             });
         })
         .catch((error) => {
-            console.log("Could not fetch image from Storage (might not be uploaded yet):", error);
-            // Fallback to local if desired, but user manually set src in HTML to ./img/robot.png
+            console.log("Storage image not found or error:", error);
         });
 
-    // 3D Tilt Effect
+    // --- 3D Tilt Effect ---
     container.addEventListener('mousemove', (e) => {
         const xAxis = (window.innerWidth / 2 - e.pageX) / 25;
         const yAxis = (window.innerHeight / 2 - e.pageY) / 25;
-
         card.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
 
-        // Update mouse position for spotlight effect
         const rect = card.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        card.style.setProperty('--mouse-x', `${x}px`);
-        card.style.setProperty('--mouse-y', `${y}px`);
+        card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+        card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
     });
 
-    container.addEventListener('mouseenter', (e) => {
-        card.style.transition = 'none';
-    });
-
-    container.addEventListener('mouseleave', (e) => {
+    container.addEventListener('mouseenter', () => card.style.transition = 'none');
+    container.addEventListener('mouseleave', () => {
         card.style.transition = 'transform 0.5s ease';
         card.style.transform = 'rotateY(0deg) rotateX(0deg)';
     });
 
-    // FireStore Logic
+    // --- Firestore Logic ---
     if (recordBtn) {
         recordBtn.addEventListener('click', async () => {
+            if (!auth.currentUser) return; // Guard
             try {
                 const now = new Date();
                 await addDoc(collection(db, "visits"), {
-                    timestamp: now
+                    timestamp: now,
+                    uid: auth.currentUser.uid, // Optionally record who clicked
+                    name: auth.currentUser.displayName
                 });
-                console.log("Document written");
             } catch (e) {
                 console.error("Error adding document: ", e);
-                alert("記録に失敗しました。コンソールを確認してください。");
+                alert("記録に失敗しました。認証エラーの可能性があります。");
             }
         });
     }
 
+    let currentSnapshot = [];
+
     // Real-time listener
     const q = query(collection(db, "visits"), orderBy("timestamp", "desc"), limit(10));
     onSnapshot(q, (snapshot) => {
-        logsContainer.innerHTML = ''; // Clear current
+        currentSnapshot = snapshot;
+        renderLogs(snapshot, auth.currentUser);
+    });
+
+    function renderLogs(snapshot, currentUser) {
+        if (!logsContainer || !snapshot) return;
+
+        logsContainer.innerHTML = '';
         snapshot.forEach((snapshotDoc) => {
             const data = snapshotDoc.data();
             const date = data.timestamp.toDate();
@@ -105,27 +164,31 @@ document.addEventListener('DOMContentLoaded', () => {
             div.className = 'log-item';
 
             const span = document.createElement('span');
+            // Optionally show who visited if available
+            // span.textContent = `${dateStr} by ${data.name || 'Anonymous'}`; 
             span.textContent = `Visited at: ${dateStr}`;
 
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'delete-btn';
-            deleteBtn.textContent = '×';
-            deleteBtn.onclick = async () => {
-                const confirmDelete = confirm('この記録を削除しますか？');
-                if (confirmDelete) {
-                    try {
-                        await deleteDoc(doc(db, "visits", snapshotDoc.id));
-                        console.log("Document deleted");
-                    } catch (e) {
-                        console.error("Error removing document: ", e);
-                        alert("削除に失敗しました");
-                    }
-                }
-            };
-
             div.appendChild(span);
-            div.appendChild(deleteBtn);
+
+            // Only show delete button if logged in
+            if (currentUser) {
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.textContent = '×';
+                deleteBtn.onclick = async () => {
+                    if (confirm('この記録を削除しますか？')) {
+                        try {
+                            await deleteDoc(doc(db, "visits", snapshotDoc.id));
+                        } catch (e) {
+                            console.error("Error removing:", e);
+                            alert("削除できませんでした（権限がない可能性があります）");
+                        }
+                    }
+                };
+                div.appendChild(deleteBtn);
+            }
+
             logsContainer.appendChild(div);
         });
-    });
+    }
 });
