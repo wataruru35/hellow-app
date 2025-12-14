@@ -1,0 +1,42 @@
+{
+  "status": "success",
+  "result": [
+    {
+      "projectId": "arduino-2c073",
+      "projectNumber": "32624419894",
+      "displayName": "arduino",
+      "name": "projects/arduino-2c073",
+      "resources": {
+        "hostingSite": "arduino-2c073",
+        "realtimeDatabaseInstance": "arduino-2c073",
+        "locationId": "us-central"
+      },
+      "state": "ACTIVE",
+      "etag": "1_c49890e8-7e54-47f9-9042-311e652660df"
+    },
+    {
+      "projectId": "test-app1-2a73e",
+      "projectNumber": "760466678448",
+      "displayName": "test-app1",
+      "name": "projects/test-app1-2a73e",
+      "resources": {
+        "hostingSite": "test-app1-2a73e"
+      },
+      "state": "ACTIVE",
+      "etag": "1_c8c80657-c48a-4e49-8152-bff4130d02e3"
+    },
+    {
+      "projectId": "watatchan-tqqvld",
+      "projectNumber": "185129087777",
+      "displayName": "watatchan",
+      "name": "projects/watatchan-tqqvld",
+      "resources": {
+        "hostingSite": "watatchan-tqqvld",
+        "realtimeDatabaseInstance": "watatchan-tqqvld",
+        "locationId": "us-central"
+      },
+      "state": "ACTIVE",
+      "etag": "1_ec7ff1f7-3133-42e1-acd5-d9a0786457ee"
+    }
+  ]
+}

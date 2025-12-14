@@ -1,0 +1,10 @@
+{
+  "projectId": "test-app1-2a73e",
+  "appId": "1:760466678448:web:52a5764221d015b85d5175",
+  "storageBucket": "test-app1-2a73e.firebasestorage.app",
+  "apiKey": "AIzaSyA8ZWw5vzk45f4M54j7RzCydbsedvEwea4",
+  "authDomain": "test-app1-2a73e.firebaseapp.com",
+  "messagingSenderId": "760466678448",
+  "projectNumber": "760466678448",
+  "version": "2"
+}

@@ -1,0 +1,22 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Firebase
+.firebase/
+firebase-debug.log
+.firebaserc
+
+# Development
+.ds_store
+
+# IDX
+.idx/
+# Wait, actually we WANT to commit .idx if we want it to work in IDX? 
+# Yes, .idx should be committed. BUT .firebaserc contains default project alias? 
+# Usually .firebaserc is safe to commit if it's just project aliases. 
+# Secrets should be excluded on IDX by default or env vars.
+
+# User-specific
+.vscode/
