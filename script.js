@@ -79,7 +79,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (user) {
-            // User is signed in.
+            // Check Allowlist
+            const allowedEmails = ['wataruru35@gmail.com', 'abc@gmail.com'];
+            if (!allowedEmails.includes(user.email)) {
+                alert("アクセス権限がありません。\n許可されたメールアドレスでログインしてください。");
+                signOut(auth);
+                return;
+            }
+
+            // User is signed in and allowed.
             loginBtn.style.display = 'none';
             userInfo.style.display = 'flex';
             userIcon.src = user.photoURL;
